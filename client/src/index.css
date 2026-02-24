@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-cream-100 text-antraciet-800;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+}
+
+@layer components {
+  /* Editoriale kaart */
+  .card {
+    @apply bg-white rounded-editorial shadow-editorial p-6;
+  }
+
+  /* Goud accent lijn */
+  .goud-lijn {
+    @apply border-l-2 border-goud-400 pl-4;
+  }
+
+  /* Primaire knop */
+  .btn-primair {
+    @apply bg-antraciet-800 text-cream-50 px-5 py-2.5 text-sm font-medium
+           tracking-wide hover:bg-antraciet-700 transition-colors duration-200
+           rounded-editorial;
+  }
+
+  /* Secundaire knop */
+  .btn-secundair {
+    @apply border border-antraciet-800 text-antraciet-800 px-5 py-2.5 text-sm
+           font-medium tracking-wide hover:bg-cream-200 transition-colors duration-200
+           rounded-editorial;
+  }
+
+  /* Status badge basis */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 text-xs font-medium rounded-full;
+  }
+
+  /* Formulier input */
+  .input {
+    @apply w-full border border-cream-300 rounded-editorial px-3 py-2 text-sm
+           bg-white focus:outline-none focus:ring-1 focus:ring-goud-400
+           focus:border-goud-400 transition-colors placeholder:text-gray-400;
+  }
+
+  /* Label */
+  .label {
+    @apply block text-xs font-medium text-antraciet-700 uppercase tracking-wider mb-1.5;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { @apply bg-cream-100; }
+::-webkit-scrollbar-thumb { @apply bg-cream-300 rounded-full; }
+::-webkit-scrollbar-thumb:hover { @apply bg-goud-300; }
