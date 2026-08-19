@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../utils/api';
 
 const TYPEN = [
-  { waarde: 'factuur',         label: 'Factuur' },
+  { waarde: 'inkoopfactuur',   label: 'Inkoopfactuur (kosten)' },
   { waarde: 'bon',             label: 'Bon / Kassabon' },
   { waarde: 'betaling',        label: 'Betaling' },
   { waarde: 'salarisoverzicht',label: 'Salarisoverzicht' },
@@ -18,7 +18,7 @@ export default function FinancieelFormulier({ onOpslaan, onAnnuleer, beginWaarde
   const [form, setForm] = useState({
     influencer_id: '',
     categorie_id: '',
-    type: 'factuur',
+    type: 'inkoopfactuur',
     omschrijving: '',
     bedrag: '',
     btw_bedrag: '',

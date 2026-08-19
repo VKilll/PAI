@@ -6,6 +6,10 @@ import Layout from './components/Layout/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Pakketten from './pages/Pakketten';
+import Samenwerkingen from './pages/Samenwerkingen';
+import Verkoopfacturen from './pages/Verkoopfacturen';
+import MijnFacturen from './pages/MijnFacturen';
+import Berichten from './pages/Berichten';
 import Financien from './pages/Financien';
 import Reizen from './pages/Reizen';
 import Content from './pages/Content';
@@ -28,6 +32,12 @@ function Beschermd({ children }) {
   return gebruiker ? children : <Navigate to="/login" replace />;
 }
 
+// Verkoopfacturen zijn van de manager, eigen facturen van de influencer/PA
+function AlleenRollen({ rollen, children }) {
+  const { gebruiker } = useAuth();
+  return rollen.includes(gebruiker?.rol) ? children : <Navigate to="/" replace />;
+}
+
 function AppRoutes() {
   const { gebruiker } = useAuth();
   return (
@@ -36,6 +46,10 @@ function AppRoutes() {
       <Route path="/" element={<Beschermd><Layout /></Beschermd>}>
         <Route index element={<Dashboard />} />
         <Route path="pakketten" element={<Pakketten />} />
+        <Route path="samenwerkingen" element={<Samenwerkingen />} />
+        <Route path="verkoopfacturen" element={<AlleenRollen rollen={['manager']}><Verkoopfacturen /></AlleenRollen>} />
+        <Route path="mijn-facturen" element={<AlleenRollen rollen={['influencer', 'pa']}><MijnFacturen /></AlleenRollen>} />
+        <Route path="berichten" element={<AlleenRollen rollen={['influencer']}><Berichten /></AlleenRollen>} />
         <Route path="financien" element={<Financien />} />
         <Route path="reizen" element={<Reizen />} />
         <Route path="content" element={<Content />} />

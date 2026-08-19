@@ -15,6 +15,9 @@ const seed = db.transaction(() => {
     .run('Sophie de PA', 'pa@pa-atelier.nl', wachtwoord, 'pa');
 
   db.prepare(`INSERT OR IGNORE INTO users (naam, email, wachtwoord, rol) VALUES (?, ?, ?, ?)`)
+    .run('Noor de Manager', 'manager@pa-atelier.nl', wachtwoord, 'manager');
+
+  db.prepare(`INSERT OR IGNORE INTO users (naam, email, wachtwoord, rol) VALUES (?, ?, ?, ?)`)
     .run('Lisa Staff', 'staff@pa-atelier.nl', wachtwoord, 'staff');
 
   db.prepare(`INSERT OR IGNORE INTO users (naam, email, wachtwoord, rol) VALUES (?, ?, ?, ?)`)
@@ -127,9 +130,68 @@ const seed = db.transaction(() => {
     );
   }
 
+  // ── Demo samenwerkingen ───────────────────────────────────
+  const julia = db.prepare(`SELECT id FROM influencers WHERE gebruikersnaam = '@juliabakker'`).get();
+
+  const samenwerkingen = [
+    {
+      influencer: emma?.id,
+      klant: "Domino's Pizza",
+      klant_contact: 'Marketingteam Domino\u2019s',
+      klant_email: 'marketing@dominos.nl',
+      titel: "Domino's — Reel campagne",
+      omschrijving: 'Eén reel en twee stories rond de nieuwe pizza-lijn.',
+      bedrag: 2500, platform: 'instagram',
+      post_datum: '2026-01-28',
+      status: 'gepost',
+    },
+    {
+      influencer: emma?.id,
+      klant: 'Jacquemus',
+      klant_email: 'press@jacquemus.com',
+      titel: 'Jacquemus — SS26 lookbook',
+      omschrijving: 'Drie feedposts met de SS26 collectie.',
+      bedrag: 4200, platform: 'instagram',
+      deadline: '2026-03-15',
+      status: 'in_productie',
+    },
+    {
+      influencer: julia?.id,
+      klant: 'Rituals',
+      klant_email: 'partnerships@rituals.com',
+      titel: 'Rituals — ochtendroutine',
+      omschrijving: 'YouTube-integratie van 60 seconden.',
+      bedrag: 3100, platform: 'youtube',
+      deadline: '2026-04-02',
+      status: 'bevestigd',
+    },
+  ].filter(s => s.influencer);
+
+  const invoegenSamenwerking = db.prepare(`
+    INSERT INTO collaborations
+      (influencer_id, klant, klant_contact, klant_email, titel, omschrijving, bedrag,
+       platform, deadline, post_datum, status, gearchiveerd, gearchiveerd_op)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  for (const s of samenwerkingen) {
+    const bestaat = db.prepare(`SELECT id FROM collaborations WHERE titel = ? AND influencer_id = ?`)
+      .get(s.titel, s.influencer);
+    if (bestaat) continue;
+
+    const archief = ['gepost', 'afgerond', 'geannuleerd'].includes(s.status);
+    invoegenSamenwerking.run(
+      s.influencer, s.klant, s.klant_contact || null, s.klant_email || null,
+      s.titel, s.omschrijving, s.bedrag, s.platform,
+      s.deadline || null, s.post_datum || null, s.status,
+      archief ? 1 : 0, archief ? (s.post_datum || null) : null
+    );
+  }
+
   console.log('Seed data succesvol aangemaakt!');
   console.log('Inloggegevens:');
   console.log('  PA:          pa@pa-atelier.nl / welkom123');
+  console.log('  Manager:     manager@pa-atelier.nl / welkom123');
   console.log('  Staff:       staff@pa-atelier.nl / welkom123');
   console.log('  Influencer:  emma@pa-atelier.nl / welkom123');
 });

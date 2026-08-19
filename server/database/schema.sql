@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
   naam        TEXT NOT NULL,
   email       TEXT NOT NULL UNIQUE,
   wachtwoord  TEXT NOT NULL,
-  rol         TEXT NOT NULL CHECK(rol IN ('pa', 'staff', 'influencer')),
+  rol         TEXT NOT NULL CHECK(rol IN ('pa', 'manager', 'staff', 'influencer')),
   actief      INTEGER NOT NULL DEFAULT 1,
   aangemaakt  TEXT NOT NULL DEFAULT (datetime('now')),
   bijgewerkt  TEXT NOT NULL DEFAULT (datetime('now'))
@@ -99,7 +99,9 @@ CREATE TABLE IF NOT EXISTS finance_items (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   influencer_id   INTEGER NOT NULL REFERENCES influencers(id),
   categorie_id    INTEGER REFERENCES finance_categories(id),
-  type            TEXT NOT NULL CHECK(type IN ('factuur','bon','betaling','salarisoverzicht')),
+  -- LET OP: verkoopfacturen horen NIET in finance_items. Die staan in sales_invoices
+  -- en zijn eigendom van de manager. Hier alleen kosten/bonnen/betalingen van de PA.
+  type            TEXT NOT NULL CHECK(type IN ('inkoopfactuur','bon','betaling','salarisoverzicht')),
   omschrijving    TEXT NOT NULL,
   bedrag          REAL NOT NULL,
   btw_bedrag      REAL DEFAULT 0,
@@ -384,6 +386,169 @@ CREATE TABLE IF NOT EXISTS cron_logs (
   uitgevoerd  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+
+-- ============================================================
+-- MODULE 9: SAMENWERKINGEN (COLLABORATIONS)
+-- Front = lopend, Archief = gepost/afgerond/geannuleerd
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS collaborations (
+  id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+  influencer_id      INTEGER NOT NULL REFERENCES influencers(id),
+  klant              TEXT NOT NULL,        -- opdrachtgever / merk
+  klant_contact      TEXT,
+  klant_email        TEXT,
+  klant_adres        TEXT,
+  titel              TEXT NOT NULL,
+  omschrijving       TEXT,
+  bedrag             REAL NOT NULL DEFAULT 0,   -- vergoeding excl. BTW
+  btw_percentage     REAL NOT NULL DEFAULT 21,
+  valuta             TEXT NOT NULL DEFAULT 'EUR',
+  briefing_id        INTEGER REFERENCES briefings(id),
+  content_post_id    INTEGER REFERENCES content_posts(id),
+  platform           TEXT,
+  deadline           TEXT,
+  post_datum         TEXT,                 -- wanneer daadwerkelijk gepost
+  status             TEXT NOT NULL DEFAULT 'aanvraag'
+                       CHECK(status IN ('aanvraag','bevestigd','in_productie','gepost','afgerond','geannuleerd')),
+  gearchiveerd       INTEGER NOT NULL DEFAULT 0,
+  gearchiveerd_op    TEXT,
+  sales_invoice_id   INTEGER REFERENCES sales_invoices(id),
+  notities           TEXT,
+  aangemaakt         TEXT NOT NULL DEFAULT (datetime('now')),
+  bijgewerkt         TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS collaboration_status_history (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  collaboration_id  INTEGER NOT NULL REFERENCES collaborations(id) ON DELETE CASCADE,
+  van_status        TEXT,
+  naar_status       TEXT NOT NULL,
+  notitie           TEXT,
+  gewijzigd_door    INTEGER REFERENCES users(id),
+  aangemaakt        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ============================================================
+-- MODULE 10: VERKOOPFACTUREN — EIGENDOM VAN DE MANAGER
+-- De PA heeft hier geen toegang toe (zie routes/salesInvoices.js).
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS sales_invoices (
+  id                        INTEGER PRIMARY KEY AUTOINCREMENT,
+  factuurnummer             TEXT NOT NULL UNIQUE,
+  collaboration_id          INTEGER REFERENCES collaborations(id),
+  influencer_id             INTEGER NOT NULL REFERENCES influencers(id),
+  klant                     TEXT NOT NULL,
+  klant_contact             TEXT,
+  klant_email               TEXT,
+  klant_adres               TEXT,
+  omschrijving              TEXT NOT NULL,
+  bedrag                    REAL NOT NULL DEFAULT 0,   -- excl. BTW
+  btw_percentage            REAL NOT NULL DEFAULT 21,
+  btw_bedrag                REAL NOT NULL DEFAULT 0,
+  totaal                    REAL NOT NULL DEFAULT 0,   -- incl. BTW
+  valuta                    TEXT NOT NULL DEFAULT 'EUR',
+  factuurdatum              TEXT NOT NULL DEFAULT (date('now')),
+  vervaldatum               TEXT,
+  status                    TEXT NOT NULL DEFAULT 'concept'
+                              CHECK(status IN ('concept','goedgekeurd','verzonden','betaald','geannuleerd')),
+  automatisch_aangemaakt     INTEGER NOT NULL DEFAULT 0,
+  aangemaakt_door           INTEGER REFERENCES users(id),
+  goedgekeurd_door          INTEGER REFERENCES users(id),
+  goedgekeurd_op            TEXT,
+  verzonden_op              TEXT,
+  verzonden_naar            TEXT,
+  betaald_op                TEXT,
+  -- Influencer mag pas zijn/haar eigen factuur sturen NA akkoord van de manager
+  influencer_vrijgegeven    INTEGER NOT NULL DEFAULT 0,
+  influencer_vrijgegeven_op TEXT,
+  influencer_vrijgegeven_door INTEGER REFERENCES users(id),
+  notities                  TEXT,
+  aangemaakt                TEXT NOT NULL DEFAULT (datetime('now')),
+  bijgewerkt                TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ============================================================
+-- NOTIFICATIES (pop-ups, o.a. "samenwerking afgerond" voor de manager)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  doel_rol       TEXT,                 -- 'manager' | 'pa' | 'staff' | 'influencer'
+  doel_user_id   INTEGER REFERENCES users(id),
+  type           TEXT NOT NULL,        -- 'samenwerking_afgerond' | 'factuur_vrijgegeven' | ...
+  titel          TEXT NOT NULL,
+  bericht        TEXT,
+  entiteit_type  TEXT,                 -- 'collaboration' | 'sales_invoice'
+  entiteit_id    INTEGER,
+  link           TEXT,
+  prioriteit     TEXT NOT NULL DEFAULT 'normaal' CHECK(prioriteit IN ('laag','normaal','hoog')),
+  gelezen        INTEGER NOT NULL DEFAULT 0,
+  gelezen_op     TEXT,
+  afgehandeld    INTEGER NOT NULL DEFAULT 0,
+  afgehandeld_op TEXT,
+  aangemaakt     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ============================================================
+-- PORTAAL BERICHTEN (manager -> influencer)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS portal_messages (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  influencer_id     INTEGER NOT NULL REFERENCES influencers(id),
+  van_user_id       INTEGER REFERENCES users(id),
+  type              TEXT NOT NULL DEFAULT 'algemeen'
+                      CHECK(type IN ('algemeen','factuur_verzoek')),
+  onderwerp         TEXT NOT NULL,
+  bericht           TEXT NOT NULL,
+  sales_invoice_id  INTEGER REFERENCES sales_invoices(id),
+  collaboration_id  INTEGER REFERENCES collaborations(id),
+  gelezen           INTEGER NOT NULL DEFAULT 0,
+  gelezen_op        TEXT,
+  aangemaakt        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ============================================================
+-- MODULE 11: INFLUENCER-FACTUREN
+-- De influencer (of de PA namens de influencer) factureert Scala Management.
+-- Kan PAS aangemaakt worden voor een samenwerking die de manager al aan de
+-- klant heeft gefactureerd en heeft vrijgegeven.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS influencer_invoices (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  factuurnummer     TEXT NOT NULL,
+  influencer_id     INTEGER NOT NULL REFERENCES influencers(id),
+  collaboration_id  INTEGER NOT NULL REFERENCES collaborations(id),
+  sales_invoice_id  INTEGER REFERENCES sales_invoices(id),
+  omschrijving      TEXT NOT NULL,
+  bedrag            REAL NOT NULL DEFAULT 0,   -- excl. BTW
+  btw_percentage    REAL NOT NULL DEFAULT 21,
+  btw_bedrag        REAL NOT NULL DEFAULT 0,
+  totaal            REAL NOT NULL DEFAULT 0,
+  valuta            TEXT NOT NULL DEFAULT 'EUR',
+  factuurdatum      TEXT NOT NULL DEFAULT (date('now')),
+  vervaldatum       TEXT,
+  status            TEXT NOT NULL DEFAULT 'concept'
+                      CHECK(status IN ('concept','verzonden','betaald','geannuleerd')),
+  ontvanger         TEXT NOT NULL DEFAULT 'Scala Management',
+  ontvanger_email   TEXT,
+  verzonden_op      TEXT,
+  email_status      TEXT,   -- 'verzonden' | 'mislukt' | 'niet_geconfigureerd'
+  email_fout        TEXT,
+  betaald_op        TEXT,
+  bestand_url       TEXT,
+  aangemaakt_door   INTEGER REFERENCES users(id),
+  aangemaakt_namens TEXT NOT NULL DEFAULT 'influencer'
+                      CHECK(aangemaakt_namens IN ('influencer','pa')),
+  notities          TEXT,
+  aangemaakt        TEXT NOT NULL DEFAULT (datetime('now')),
+  bijgewerkt        TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(influencer_id, factuurnummer)
+);
+
 -- ============================================================
 -- INDEXES voor snelheid
 -- ============================================================
@@ -397,3 +562,13 @@ CREATE INDEX IF NOT EXISTS idx_content_posts_influencer ON content_posts(influen
 CREATE INDEX IF NOT EXISTS idx_stats_datum ON stats_entries(datum);
 CREATE INDEX IF NOT EXISTS idx_briefings_influencer ON briefings(influencer_id);
 CREATE INDEX IF NOT EXISTS idx_travel_trips_datum ON travel_trips(vertrek_datum);
+
+CREATE INDEX IF NOT EXISTS idx_collaborations_influencer ON collaborations(influencer_id);
+CREATE INDEX IF NOT EXISTS idx_collaborations_status ON collaborations(status);
+CREATE INDEX IF NOT EXISTS idx_collaborations_archief ON collaborations(gearchiveerd);
+CREATE INDEX IF NOT EXISTS idx_sales_invoices_status ON sales_invoices(status);
+CREATE INDEX IF NOT EXISTS idx_sales_invoices_influencer ON sales_invoices(influencer_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_doel ON notifications(doel_rol, gelezen);
+CREATE INDEX IF NOT EXISTS idx_portal_messages_influencer ON portal_messages(influencer_id, gelezen);
+CREATE INDEX IF NOT EXISTS idx_influencer_invoices_influencer ON influencer_invoices(influencer_id);
+CREATE INDEX IF NOT EXISTS idx_influencer_invoices_collab ON influencer_invoices(collaboration_id);

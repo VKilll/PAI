@@ -16,6 +16,11 @@ const researchRoutes = require('./routes/research');
 const statsRoutes = require('./routes/stats');
 const engagementRoutes = require('./routes/engagement');
 const influencersRoutes = require('./routes/influencers');
+const collaborationsRoutes = require('./routes/collaborations');
+const salesInvoicesRoutes = require('./routes/salesInvoices');
+const influencerInvoicesRoutes = require('./routes/influencerInvoices');
+const notificationsRoutes = require('./routes/notifications');
+const portalMessagesRoutes = require('./routes/portalMessages');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -42,6 +47,11 @@ app.use('/api/research', researchRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/engagement', engagementRoutes);
 app.use('/api/influencers', influencersRoutes);
+app.use('/api/collaborations', collaborationsRoutes);
+app.use('/api/sales-invoices', salesInvoicesRoutes);
+app.use('/api/influencer-invoices', influencerInvoicesRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/portal-messages', portalMessagesRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

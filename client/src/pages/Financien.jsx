@@ -17,7 +17,7 @@ function formaatBedrag(bedrag, valuta = 'EUR') {
   return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: valuta }).format(bedrag || 0);
 }
 
-const typeLabels = { factuur: 'Factuur', bon: 'Bon', betaling: 'Betaling', salarisoverzicht: 'Salaris' };
+const typeLabels = { inkoopfactuur: 'Inkoopfactuur', bon: 'Bon', betaling: 'Betaling', salarisoverzicht: 'Salaris' };
 
 // ── Samenvattingskaart ────────────────────────────────────
 function SamenvattingsKaart({ titel, bedrag, icoon: Icoon, kleur, sub }) {
@@ -235,7 +235,7 @@ export default function Financien() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-serif text-heading text-antraciet-800">Financiën</h1>
-          <p className="font-sans text-sm text-gray-400 mt-1">Facturen, bonnetjes en betalingen</p>
+          <p className="font-sans text-sm text-gray-400 mt-1">Kosten, bonnetjes en betalingen — verkoopfacturen staan bij de manager</p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <button onClick={() => setWeekOpen(true)} className="btn-secundair flex items-center gap-2 text-sm">

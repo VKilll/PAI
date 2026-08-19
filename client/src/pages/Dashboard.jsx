@@ -1,13 +1,13 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Package, CreditCard, Plane, Calendar } from 'lucide-react';
+import { Package, CreditCard, Plane, Handshake } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const modules = [
-  { naar: '/pakketten',    label: 'Pakketten',    icoon: Package,   kleur: 'bg-roos-100 text-roos-400' },
-  { naar: '/financien',    label: 'Financiën',    icoon: CreditCard,kleur: 'bg-cream-200 text-goud-600' },
-  { naar: '/reizen',       label: 'Reizen',       icoon: Plane,     kleur: 'bg-blue-50 text-blue-400'  },
-  { naar: '/content',      label: 'Content',      icoon: Calendar,  kleur: 'bg-green-50 text-green-500'},
+  { naar: '/samenwerkingen', label: 'Samenwerkingen', icoon: Handshake,  kleur: 'bg-green-50 text-green-500' },
+  { naar: '/pakketten',      label: 'Pakketten',      icoon: Package,    kleur: 'bg-roos-100 text-roos-400'  },
+  { naar: '/financien',      label: 'Financiën',      icoon: CreditCard, kleur: 'bg-cream-200 text-goud-600' },
+  { naar: '/reizen',         label: 'Reizen',         icoon: Plane,      kleur: 'bg-blue-50 text-blue-400'   },
 ];
 
 export default function Dashboard() {
@@ -48,7 +48,8 @@ export default function Dashboard() {
       <div className="card border-l-2 border-goud-400">
         <p className="font-sans text-sm text-gray-500">
           Welkom bij <span className="font-medium text-antraciet-800">PA Atelier</span>.
-          Bouw is in progress — Module 1 (Pakketten) volgt als eerste.
+          Samenwerkingen lopen van aanvraag naar archief; zodra er gepost is, zet het systeem de
+          verkoopfactuur voor de manager klaar.
         </p>
       </div>
     </div>

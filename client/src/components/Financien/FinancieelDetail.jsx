@@ -6,7 +6,7 @@ import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 
 const typeLabels = {
-  factuur:          'Factuur',
+  inkoopfactuur:    'Inkoopfactuur',
   bon:              'Bon',
   betaling:         'Betaling',
   salarisoverzicht: 'Salarisoverzicht',

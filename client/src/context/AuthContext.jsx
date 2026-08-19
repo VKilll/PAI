@@ -31,12 +31,19 @@ export function AuthProvider({ children }) {
     setGebruiker(null);
   }
 
-  const isPA       = gebruiker?.rol === 'pa';
-  const isStaff    = gebruiker?.rol === 'staff';
+  const isPA         = gebruiker?.rol === 'pa';
+  const isManager    = gebruiker?.rol === 'manager';
+  const isStaff      = gebruiker?.rol === 'staff';
   const isInfluencer = gebruiker?.rol === 'influencer';
 
+  // PA, manager en staff werken met alle influencers en kunnen wisselen
+  const magWisselen = isPA || isManager || isStaff;
+
   return (
-    <AuthContext.Provider value={{ gebruiker, laden, login, uitloggen, isPA, isStaff, isInfluencer }}>
+    <AuthContext.Provider value={{
+      gebruiker, laden, login, uitloggen,
+      isPA, isManager, isStaff, isInfluencer, magWisselen,
+    }}>
       {children}
     </AuthContext.Provider>
   );

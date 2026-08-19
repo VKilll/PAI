@@ -4,9 +4,26 @@ const path    = require('path');
 const fs      = require('fs');
 const { getDb } = require('../database/db');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { influencerFilter } = require('../middleware/scope');
 
 const router = express.Router();
 router.use(authenticate);
+
+// ────────────────────────────────────────────────────────────
+// Let op: dit is de kosten-/betalingenadministratie van de PA.
+// VERKOOPFACTUREN staan hier NIET meer in — die zijn eigendom van de manager
+// (/api/sales-invoices). De factuur die de influencer zelf stuurt staat in
+// /api/influencer-invoices.
+// ────────────────────────────────────────────────────────────
+const TOEGESTANE_TYPES = ['inkoopfactuur', 'bon', 'betaling', 'salarisoverzicht'];
+
+function weigerVerkoopfactuur(type) {
+  if (!type || TOEGESTANE_TYPES.includes(type)) return null;
+  if (['factuur', 'verkoopfactuur'].includes(type)) {
+    return 'Verkoopfacturen horen bij de manager. Maak hem aan onder Verkoopfacturen.';
+  }
+  return `Ongeldig type. Kies uit: ${TOEGESTANE_TYPES.join(', ')}.`;
+}
 
 // ── Multer configuratie ───────────────────────────────────────
 const uploadDir = path.join(__dirname, '../../uploads/finance');
@@ -47,6 +64,9 @@ router.get('/samenvatting', (req, res) => {
   const params = [];
 
   if (influencer_id) { waar += ` AND f.influencer_id = ?`; params.push(influencer_id); }
+  const scope = influencerFilter(req, 'f.influencer_id', db);
+  waar += scope.sql;
+  params.push(...scope.params);
   if (maand && jaar) {
     waar += ` AND strftime('%Y-%m', f.datum) = ?`;
     params.push(`${jaar}-${String(maand).padStart(2, '0')}`);
@@ -92,6 +112,9 @@ router.get('/week-overzicht', (req, res) => {
   `;
   const params = [];
   if (influencer_id) { sql += ` AND f.influencer_id = ?`; params.push(influencer_id); }
+  const scope = influencerFilter(req, 'f.influencer_id', db);
+  sql += scope.sql;
+  params.push(...scope.params);
   sql += ` ORDER BY f.datum ASC`;
 
   const items = db.prepare(sql).all(...params);
@@ -112,7 +135,7 @@ router.get('/week-overzicht', (req, res) => {
 // ════════════════════════════════════════════════════════════
 // GET /api/finance/maand-export  — CSV export voor accountant
 // ════════════════════════════════════════════════════════════
-router.get('/maand-export', requireRole('pa'), (req, res) => {
+router.get('/maand-export', requireRole('pa', 'manager'), (req, res) => {
   const db = getDb();
   const { maand, jaar, influencer_id } = req.query;
 
@@ -192,6 +215,10 @@ router.get('/', (req, res) => {
   else if (jaar)     { sql += ` AND strftime('%Y', f.datum) = ?`;  params.push(String(jaar)); }
   if (zoek)          { sql += ` AND (f.omschrijving LIKE ? OR f.opdrachtgever LIKE ?)`; params.push(`%${zoek}%`, `%${zoek}%`); }
 
+  const scope = influencerFilter(req, 'f.influencer_id', db);
+  sql += scope.sql;
+  params.push(...scope.params);
+
   sql += ` ORDER BY f.datum DESC, f.aangemaakt DESC`;
 
   res.json(db.prepare(sql).all(...params));
@@ -228,6 +255,9 @@ router.post('/', requireRole('pa', 'staff'), (req, res) => {
     return res.status(400).json({ error: 'Influencer, type, omschrijving, bedrag en datum zijn verplicht' });
   }
 
+  const typeFout = weigerVerkoopfactuur(type);
+  if (typeFout) return res.status(400).json({ error: typeFout });
+
   const result = db.prepare(`
     INSERT INTO finance_items
       (influencer_id, categorie_id, type, omschrijving, bedrag, btw_bedrag,
@@ -255,6 +285,9 @@ router.put('/:id', requireRole('pa', 'staff'), (req, res) => {
     categorie_id, type, omschrijving, bedrag, btw_bedrag, valuta,
     datum, betaald, betaald_datum, opdrachtgever, notities,
   } = req.body;
+
+  const typeFout = weigerVerkoopfactuur(type);
+  if (typeFout) return res.status(400).json({ error: typeFout });
 
   db.prepare(`
     UPDATE finance_items SET
