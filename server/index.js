@@ -21,6 +21,8 @@ const salesInvoicesRoutes = require('./routes/salesInvoices');
 const influencerInvoicesRoutes = require('./routes/influencerInvoices');
 const notificationsRoutes = require('./routes/notifications');
 const portalMessagesRoutes = require('./routes/portalMessages');
+const agendaRoutes = require('./routes/agenda');
+const feedsRoutes = require('./routes/feeds');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -52,6 +54,8 @@ app.use('/api/sales-invoices', salesInvoicesRoutes);
 app.use('/api/influencer-invoices', influencerInvoicesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/portal-messages', portalMessagesRoutes);
+app.use('/api/agenda', agendaRoutes);
+app.use('/api/feeds', feedsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

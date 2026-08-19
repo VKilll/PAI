@@ -6,7 +6,8 @@ import { LogOut, Users } from 'lucide-react';
 import NotificatieCentrum from '../Notificaties/NotificatieCentrum';
 
 const paginaTitels = {
-  '/':                'Dashboard',
+  '/':                'Vandaag',
+  '/influencers':     'Influencers',
   '/pakketten':       'Pakketten',
   '/samenwerkingen':  'Samenwerkingen',
   '/financien':       'Financiën',

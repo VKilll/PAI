@@ -242,7 +242,15 @@ CREATE TABLE IF NOT EXISTS briefings (
                     CHECK(status IN ('nieuw','verwerkt','lopend','afgerond')),
   ontvangen_datum TEXT NOT NULL DEFAULT (date('now')),
   deadline        TEXT,
+  live_datum      TEXT,          -- wanneer de content live moet
   vergoeding      REAL,
+  hashtags        TEXT,          -- JSON array
+  vermeldingen    TEXT,          -- JSON array van @accounts
+  exclusiviteit   TEXT,
+  ai_extractie    TEXT,          -- JSON: volledige uitlezing door de AI
+  ai_status       TEXT NOT NULL DEFAULT 'niet_gedraaid'
+                    CHECK(ai_status IN ('niet_gedraaid','bezig','klaar','mislukt','handmatig')),
+  ai_fout         TEXT,
   notities        TEXT,
   aangemaakt      TEXT NOT NULL DEFAULT (datetime('now')),
   bijgewerkt      TEXT NOT NULL DEFAULT (datetime('now'))
@@ -550,6 +558,78 @@ CREATE TABLE IF NOT EXISTS influencer_invoices (
 );
 
 -- ============================================================
+-- MODULE 12: FEEDS & INSTAGRAM-KOPPELING
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS instagram_accounts (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  influencer_id   INTEGER NOT NULL UNIQUE REFERENCES influencers(id),
+  ig_gebruiker_id TEXT,      -- Instagram Business Account ID
+  gebruikersnaam  TEXT,
+  pagina_id       TEXT,      -- gekoppelde Facebook-pagina
+  toegangstoken   TEXT,      -- long-lived token
+  token_verloopt  TEXT,
+  status          TEXT NOT NULL DEFAULT 'niet_gekoppeld'
+                    CHECK(status IN ('niet_gekoppeld','gekoppeld','token_verlopen','fout')),
+  laatste_sync    TEXT,
+  laatste_fout    TEXT,
+  aangemaakt      TEXT NOT NULL DEFAULT (datetime('now')),
+  bijgewerkt      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS feed_items (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  influencer_id    INTEGER NOT NULL REFERENCES influencers(id),
+  bron             TEXT NOT NULL DEFAULT 'handmatig' CHECK(bron IN ('instagram','handmatig')),
+  externe_id       TEXT,     -- media-id bij Instagram
+  media_type       TEXT,     -- IMAGE / VIDEO / CAROUSEL_ALBUM / REEL
+  permalink        TEXT,
+  media_url        TEXT,
+  thumbnail_url    TEXT,
+  caption          TEXT,
+  hashtags         TEXT,     -- JSON array
+  gepost_op        TEXT,
+  likes            INTEGER,
+  reacties         INTEGER,
+  bereik           INTEGER,
+  weergaven        INTEGER,
+  collaboration_id INTEGER REFERENCES collaborations(id),
+  notities         TEXT,
+  aangemaakt       TEXT NOT NULL DEFAULT (datetime('now')),
+  bijgewerkt       TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(influencer_id, bron, externe_id)
+);
+
+-- ============================================================
+-- MODULE 13: VANDAAG (AGENDA)
+-- De agenda-items worden afgeleid uit de echte records — samenwerkingen,
+-- posts, pakketten en facturen — en dus nooit met de hand bijgehouden.
+-- Hier staat alleen wat je met een verstreken item hebt besloten.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS agenda_beslissingen (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  bron_type     TEXT NOT NULL,   -- collaboration | content_post | package | sales_invoice | influencer_invoice
+  bron_id       INTEGER NOT NULL,
+  soort         TEXT NOT NULL,   -- welk agenda-item van dat record
+  influencer_id INTEGER REFERENCES influencers(id),
+  beslissing    TEXT NOT NULL CHECK(beslissing IN ('gedaan','vervallen','verschoven')),
+  nieuwe_datum  TEXT,
+  toelichting   TEXT,
+  door          INTEGER REFERENCES users(id),
+  aangemaakt    TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(bron_type, bron_id, soort)
+);
+
+CREATE TABLE IF NOT EXISTS agenda_controles (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      INTEGER NOT NULL REFERENCES users(id),
+  datum        TEXT NOT NULL,
+  uitgevoerd_op TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(user_id, datum)
+);
+
+-- ============================================================
 -- INDEXES voor snelheid
 -- ============================================================
 
@@ -572,3 +652,5 @@ CREATE INDEX IF NOT EXISTS idx_notifications_doel ON notifications(doel_rol, gel
 CREATE INDEX IF NOT EXISTS idx_portal_messages_influencer ON portal_messages(influencer_id, gelezen);
 CREATE INDEX IF NOT EXISTS idx_influencer_invoices_influencer ON influencer_invoices(influencer_id);
 CREATE INDEX IF NOT EXISTS idx_influencer_invoices_collab ON influencer_invoices(collaboration_id);
+CREATE INDEX IF NOT EXISTS idx_feed_items_influencer ON feed_items(influencer_id, gepost_op);
+CREATE INDEX IF NOT EXISTS idx_agenda_beslissingen_bron ON agenda_beslissingen(bron_type, bron_id);

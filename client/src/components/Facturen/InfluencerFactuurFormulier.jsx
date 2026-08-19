@@ -1,15 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Info, Lock } from 'lucide-react';
 import api from '../../utils/api';
+import { samenwerkingLabel } from '../../utils/labels';
 
 function formaatBedrag(bedrag, valuta = 'EUR') {
   return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: valuta }).format(bedrag || 0);
-}
-
-// De titel bevat de klantnaam vaak al; die dan niet nog eens ervoor zetten
-function omschrijf(samenwerking) {
-  const { titel, klant } = samenwerking;
-  return titel.toLowerCase().includes(klant.toLowerCase()) ? titel : `${klant} — ${titel}`;
 }
 
 export default function InfluencerFactuurFormulier({ influencerId, voorgeselecteerd, onOpslaan, onAnnuleer }) {
@@ -47,7 +42,7 @@ export default function InfluencerFactuurFormulier({ influencerId, voorgeselecte
     if (!gekozen) return;
     setForm(f => ({
       ...f,
-      omschrijving: f.omschrijving || omschrijf(gekozen),
+      omschrijving: f.omschrijving || samenwerkingLabel(gekozen),
       bedrag: f.bedrag === '' ? gekozen.bedrag : f.bedrag,
       btw_percentage: gekozen.btw_percentage ?? f.btw_percentage,
     }));
@@ -114,7 +109,7 @@ export default function InfluencerFactuurFormulier({ influencerId, voorgeselecte
           <option value="">Kies een gefactureerde samenwerking</option>
           {samenwerkingen.map(s => (
             <option key={s.id} value={s.id}>
-              {omschrijf(s)} ({formaatBedrag(s.bedrag, s.valuta)})
+              {samenwerkingLabel(s)} ({formaatBedrag(s.bedrag, s.valuta)})
             </option>
           ))}
         </select>

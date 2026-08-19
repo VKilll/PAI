@@ -138,10 +138,30 @@ function migreerVerkoopfacturenUitFinance(database) {
   );
 }
 
+// 3) Kolommen die later aan bestaande tabellen zijn toegevoegd
+function voegKolomToe(database, tabel, kolom, definitie) {
+  const kolommen = database.prepare(`PRAGMA table_info(${tabel})`).all();
+  if (kolommen.length === 0) return;                       // tabel bestaat nog niet
+  if (kolommen.some(k => k.name === kolom)) return;        // al aanwezig
+  database.exec(`ALTER TABLE ${tabel} ADD COLUMN ${kolom} ${definitie}`);
+  console.log(`Migratie: kolom ${tabel}.${kolom} toegevoegd`);
+}
+
+function migreerNieuweKolommen(database) {
+  voegKolomToe(database, 'briefings', 'live_datum',    'TEXT');
+  voegKolomToe(database, 'briefings', 'hashtags',      'TEXT');
+  voegKolomToe(database, 'briefings', 'vermeldingen',  'TEXT');
+  voegKolomToe(database, 'briefings', 'exclusiviteit', 'TEXT');
+  voegKolomToe(database, 'briefings', 'ai_extractie',  'TEXT');
+  voegKolomToe(database, 'briefings', 'ai_status',     "TEXT NOT NULL DEFAULT 'niet_gedraaid'");
+  voegKolomToe(database, 'briefings', 'ai_fout',       'TEXT');
+}
+
 function runMigrations(database) {
   const migraties = database.transaction(() => {
     migreerUserRollen(database);
     migreerVerkoopfacturenUitFinance(database);
+    migreerNieuweKolommen(database);
   });
   try {
     migraties();

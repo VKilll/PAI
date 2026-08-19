@@ -4,7 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout/Layout';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
+import Vandaag from './pages/Vandaag';
+import Influencers from './pages/Influencers';
 import Pakketten from './pages/Pakketten';
 import Samenwerkingen from './pages/Samenwerkingen';
 import Verkoopfacturen from './pages/Verkoopfacturen';
@@ -44,7 +45,8 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={gebruiker ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/" element={<Beschermd><Layout /></Beschermd>}>
-        <Route index element={<Dashboard />} />
+        <Route index element={<Vandaag />} />
+        <Route path="influencers" element={<Influencers />} />
         <Route path="pakketten" element={<Pakketten />} />
         <Route path="samenwerkingen" element={<Samenwerkingen />} />
         <Route path="verkoopfacturen" element={<AlleenRollen rollen={['manager']}><Verkoopfacturen /></AlleenRollen>} />

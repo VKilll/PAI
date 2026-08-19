@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { nl } from 'date-fns/locale';
-import { Trash2, Receipt, ArrowRight, AlertCircle } from 'lucide-react';
+import { Trash2, Receipt, ArrowRight, AlertCircle, FileText } from 'lucide-react';
 import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import { briefingLabel } from '../../utils/labels';
 
 function formaatBedrag(bedrag, valuta = 'EUR') {
   return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: valuta }).format(bedrag || 0);
@@ -38,6 +39,32 @@ export default function SamenwerkingDetail({ samenwerking, onVernieuwd, onVerwij
 
   const magBewerken = isPA || isManager || isStaff;
   const stap = volgendeStap[samenwerking.status];
+
+  // Briefings van dezelfde influencer, om er achteraf nog een aan te hangen
+  const [briefings, setBriefings] = useState([]);
+  useEffect(() => {
+    if (!magBewerken) return;
+    api.get('/briefings', { params: { influencer_id: samenwerking.influencer_id } })
+      .then(r => setBriefings(r.data))
+      .catch(() => setBriefings([]));
+  }, [samenwerking.influencer_id, magBewerken]);
+
+  async function koppelBriefing(briefingId) {
+    setBezig(true);
+    setFout(null);
+    try {
+      if (briefingId) {
+        await api.post(`/briefings/${briefingId}/koppel`, { collaboration_id: samenwerking.id });
+      } else if (samenwerking.briefing_id) {
+        await api.post(`/briefings/${samenwerking.briefing_id}/koppel`, { collaboration_id: null });
+      }
+      onVernieuwd();
+    } catch (err) {
+      setFout(err.response?.data?.error || 'Koppelen mislukt');
+    } finally {
+      setBezig(false);
+    }
+  }
 
   async function wijzigStatus(status) {
     setBezig(true);
@@ -122,6 +149,29 @@ export default function SamenwerkingDetail({ samenwerking, onVernieuwd, onVerwij
           </div>
         )}
       </div>
+
+      {/* ── Briefing ── */}
+      {magBewerken && (
+        <div>
+          <p className="font-sans text-xs text-gray-400 uppercase tracking-wider mb-2">Briefing</p>
+          <select
+            className="input text-sm" disabled={bezig}
+            value={samenwerking.briefing_id || ''}
+            onChange={e => koppelBriefing(e.target.value ? Number(e.target.value) : null)}
+          >
+            <option value="">Geen briefing gekoppeld</option>
+            {briefings.map(b => (
+              <option key={b.id} value={b.id}>{briefingLabel(b)}</option>
+            ))}
+          </select>
+          <p className="font-sans text-xs text-gray-400 mt-1 flex items-start gap-1.5">
+            <FileText size={12} className="flex-shrink-0 mt-0.5" />
+            {briefings.length === 0
+              ? 'Deze influencer heeft nog geen briefings. Voeg er een toe onder Briefings.'
+              : 'Ook achteraf nog te koppelen. De livedatum uit de briefing wordt overgenomen als die hier nog leeg is.'}
+          </p>
+        </div>
+      )}
 
       {/* ── Doorloop ── */}
       {magBewerken && !samenwerking.gearchiveerd && (
