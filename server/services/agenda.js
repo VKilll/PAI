@@ -10,6 +10,12 @@ const { getDb } = require('../database/db');
 //
 // Wat verstreken is verdwijnt niet: het schuift op naar "achterstallig"
 // tot iemand zegt of het gebeurd is.
+//
+// Eén record levert hooguit ÉÉN regel op. Een samenwerking heeft vaak zowel
+// een aanleverdeadline als een livedatum; zou je die allebei tonen, dan staat
+// hetzelfde merk twee keer op dezelfde dag, of tegelijk bij "achterstallig"
+// én bij "komend". Daarom tonen we steeds alleen het eerstvolgende dat moet
+// gebeuren, en pas als dat is afgehandeld schuift de volgende stap door.
 // ============================================================
 
 function vandaag() {
@@ -19,6 +25,27 @@ function vandaag() {
 /** Sleutel waarmee een beslissing aan een afgeleid item hangt. */
 function sleutel(item) {
   return `${item.bron_type}:${item.bron_id}:${item.soort}`;
+}
+
+/** Vallen twee regels op dezelfde dag, dan wint het echte moment. */
+const SOORT_VOORRANG = { live: 0, plaatsen: 0, retour: 0, versturen: 0, vervalt: 0, deadline: 1 };
+
+function voorrang(item) {
+  return SOORT_VOORRANG[item.soort] ?? 0;
+}
+
+/**
+ * Kiest per record de ene regel die er nu toe doet: het eerstvolgende punt
+ * vanaf vandaag, en als alles al verstreken is het meest recente gemiste punt.
+ */
+function eerstvolgende(kandidaten, vandaagDatum) {
+  const komend = kandidaten
+    .filter(k => k.datum >= vandaagDatum)
+    .sort((a, b) => a.datum.localeCompare(b.datum) || voorrang(a) - voorrang(b));
+  if (komend.length > 0) return komend[0];
+
+  return [...kandidaten]
+    .sort((a, b) => b.datum.localeCompare(a.datum) || voorrang(a) - voorrang(b))[0];
 }
 
 // ── De bronnen ────────────────────────────────────────────────
@@ -170,14 +197,24 @@ function bouwAgenda(db, { influencerIds = null, influencerId = null, rol, dagenV
     open.push(item);
   }
 
+  // Per record één regel overhouden, zodat hetzelfde merk niet twee keer
+  // op een dag staat of in twee bakken tegelijk opduikt
+  const perRecord = new Map();
+  for (const item of open) {
+    const groep = `${item.bron_type}:${item.bron_id}`;
+    if (!perRecord.has(groep)) perRecord.set(groep, []);
+    perRecord.get(groep).push(item);
+  }
+  const enkelvoudig = [...perRecord.values()].map(k => eerstvolgende(k, vandaagDatum));
+
   const sorteer = (a, b) => a.datum.localeCompare(b.datum) || a.titel.localeCompare(b.titel);
 
   return {
     datum: vandaagDatum,
-    achterstallig: open.filter(i => i.datum <  vandaagDatum).sort(sorteer),
-    vandaag:       open.filter(i => i.datum === vandaagDatum).sort(sorteer),
-    komend:        open.filter(i => i.datum >  vandaagDatum && i.datum <= grens).sort(sorteer),
+    achterstallig: enkelvoudig.filter(i => i.datum <  vandaagDatum).sort(sorteer),
+    vandaag:       enkelvoudig.filter(i => i.datum === vandaagDatum).sort(sorteer),
+    komend:        enkelvoudig.filter(i => i.datum >  vandaagDatum && i.datum <= grens).sort(sorteer),
   };
 }
 
-module.exports = { bouwAgenda, vandaag, sleutel };
+module.exports = { bouwAgenda, vandaag, sleutel, eerstvolgende };

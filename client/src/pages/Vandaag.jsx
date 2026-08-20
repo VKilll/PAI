@@ -19,22 +19,25 @@ const icoonPerBron = {
   influencer_invoice: Receipt,
 };
 
+// De dag zelf blijft altijd zichtbaar; hoe ver weg die ligt staat erachter.
 function datumLabel(datum) {
   try {
     const d = parseISO(datum);
+    const dag = format(d, 'EEEE d MMMM', { locale: nl });
     const verschil = differenceInCalendarDays(d, new Date());
-    if (verschil === 0)  return 'vandaag';
-    if (verschil === 1)  return 'morgen';
-    if (verschil === -1) return 'gisteren';
-    if (verschil < 0)    return `${Math.abs(verschil)} dagen geleden`;
-    return format(d, 'EEEE d MMMM', { locale: nl });
+
+    if (verschil === 0)  return `${dag} · vandaag`;
+    if (verschil === 1)  return `${dag} · morgen`;
+    if (verschil === -1) return `${dag} · gisteren`;
+    if (verschil < 0)    return `${dag} · ${Math.abs(verschil)} dagen te laat`;
+    return `${dag} · over ${verschil} dagen`;
   } catch {
     return datum;
   }
 }
 
 // ── Eén regel in de lijst ─────────────────────────────────────
-function AgendaRegel({ item, onBeslis, toonDatum = false, bezig }) {
+function AgendaRegel({ item, onBeslis, bezig }) {
   const Icoon = icoonPerBron[item.bron_type] || CalendarClock;
   const [verschuifOpen, setVerschuifOpen] = useState(false);
   const [datum, setDatum] = useState(new Date().toISOString().split('T')[0]);
@@ -56,9 +59,7 @@ function AgendaRegel({ item, onBeslis, toonDatum = false, bezig }) {
         {item.toelichting && (
           <p className="font-sans text-xs text-gray-500 mt-0.5">{item.toelichting}</p>
         )}
-        {toonDatum && (
-          <p className="font-sans text-xs text-gray-400 mt-1">{datumLabel(item.datum)}</p>
-        )}
+        <p className="font-sans text-xs text-gray-400 mt-1">{datumLabel(item.datum)}</p>
 
         {verschuifOpen && (
           <div className="flex gap-2 mt-2">
@@ -120,7 +121,7 @@ function AgendaRegel({ item, onBeslis, toonDatum = false, bezig }) {
   );
 }
 
-function Blok({ titel, items, leeg, onBeslis, toonDatum, bezig, accent }) {
+function Blok({ titel, items, leeg, onBeslis, bezig, accent }) {
   return (
     <div className="card p-0 overflow-hidden">
       <div className={`px-4 py-3 border-b border-cream-200 flex items-center justify-between ${accent || 'bg-cream-50'}`}>
@@ -133,7 +134,7 @@ function Blok({ titel, items, leeg, onBeslis, toonDatum, bezig, accent }) {
         items.map(i => (
           <AgendaRegel
             key={`${i.bron_type}-${i.bron_id}-${i.soort}`}
-            item={i} onBeslis={onBeslis} toonDatum={toonDatum} bezig={bezig}
+            item={i} onBeslis={onBeslis} bezig={bezig}
           />
         ))
       )}
@@ -220,15 +221,16 @@ export default function Vandaag() {
         </button>
       </div>
 
-      {/* ── Achterstallig ── */}
-      {agenda.achterstallig.length > 0 && (
+      {/* ── Achterstallig ──
+          Zolang de dagelijkse controle openstaat laten we dit blok weg; die
+          punten staan dan al in de pop-up en horen niet twee keer op het scherm. */}
+      {agenda.achterstallig.length > 0 && !controle?.length && (
         <Blok
           titel="Achterstallig"
           accent="bg-orange-50"
           items={agenda.achterstallig}
           leeg=""
           onBeslis={beslis}
-          toonDatum
           bezig={bezig}
         />
       )}
@@ -248,14 +250,14 @@ export default function Vandaag() {
         items={agenda.komend}
         leeg="Niets in de komende week."
         onBeslis={beslis}
-        toonDatum
         bezig={bezig}
       />
 
       <p className="font-sans text-xs text-gray-400 flex items-start gap-1.5">
         <Sun size={13} className="flex-shrink-0 mt-0.5" />
         Deze lijst komt rechtstreeks uit de samenwerkingen, posts, pakketten en facturen. Er is dus geen aparte
-        takenlijst die kan gaan afwijken, en elk item hoort bij precies één influencer.
+        takenlijst die kan gaan afwijken, elk punt hoort bij precies één influencer, en elke samenwerking staat
+        op hooguit één regel: het eerstvolgende dat moet gebeuren, op zijn eigen dag.
       </p>
 
       {/* ── Dagelijkse controle ── */}
@@ -276,7 +278,7 @@ export default function Vandaag() {
               {controle.map(i => (
                 <AgendaRegel
                   key={`${i.bron_type}-${i.bron_id}-${i.soort}`}
-                  item={i} onBeslis={beslis} toonDatum bezig={bezig}
+                  item={i} onBeslis={beslis} bezig={bezig}
                 />
               ))}
             </div>
